@@ -1,10 +1,14 @@
-package ru.practicum.shareit.item;
+package ru.practicum.shareit.item.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import ru.practicum.shareit.item.dto.ItemRequestDto;
+import ru.practicum.shareit.item.dto.ItemResponseDto;
+import ru.practicum.shareit.item.dto.ItemUpdateDto;
+import ru.practicum.shareit.item.service.ItemService;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -50,7 +54,7 @@ public class ItemController {
             return Collections.emptyList();
         }
 
-        return itemService.searchItems(text,ownerId);
+        return itemService.searchItems(text, ownerId);
     }
 
     @GetMapping
