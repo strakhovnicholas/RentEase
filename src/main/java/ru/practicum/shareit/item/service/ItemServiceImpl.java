@@ -55,11 +55,11 @@ public class ItemServiceImpl implements ItemService {
                         .build())
                 .collect(Collectors.toList());
 
-        LocalDateTime lastBookingDate = bookingRepository.
-                findLastBookingEndDate(itemId, BookingStatus.PAST, LocalDateTime.now()).orElse(null);
+        LocalDateTime lastBookingDate = bookingRepository
+                .findLastBookingEndDate(itemId, BookingStatus.PAST, LocalDateTime.now()).orElse(null);
 
-        LocalDateTime nextBookingDate = bookingRepository.
-                findNextBookingStartDate(itemId, BookingStatus.WAITING, LocalDateTime.now()).orElse(null);
+        LocalDateTime nextBookingDate = bookingRepository
+                .findNextBookingStartDate(itemId, BookingStatus.WAITING, LocalDateTime.now()).orElse(null);
 
         return ItemResponseDto.builder()
                 .id(item.getId())

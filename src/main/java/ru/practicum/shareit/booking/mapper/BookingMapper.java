@@ -9,6 +9,7 @@ import ru.practicum.shareit.booking.model.Booking;
         unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface BookingMapper {
     Booking toEntity(BookingCreateDto bookingCreateDto);
+
     @Mapping(target = "bookingStartDate", source = "bookingStartDate")
     @Mapping(target = "bookingEndDate", source = "bookingEndDate")
     BookingResponseDto toDto(Booking booking);
