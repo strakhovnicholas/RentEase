@@ -43,7 +43,8 @@ public class UserServiceImpl implements UserService {
                     throw new UserAlreadyExistsException("User already exists with email: " + userRequestDto.email());
                 });
 
-        return this.userMapper.toDto(this.userRepository.save(userMapper.toEntity(userRequestDto)));
+        User user = userMapper.toEntity(userRequestDto);
+        return this.userMapper.toDto(this.userRepository.save(user));
     }
 
     @Override
