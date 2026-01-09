@@ -3,6 +3,7 @@ package ru.practicum.shareit.booking.service.util;
 import jakarta.validation.ValidationException;
 import ru.practicum.shareit.booking.dto.BookingCreateDto;
 import ru.practicum.shareit.booking.enums.BookingStatus;
+import ru.practicum.shareit.booking.exception.BookingAccessDeniedException;
 import ru.practicum.shareit.booking.model.Booking;
 import ru.practicum.shareit.item.model.Item;
 
@@ -18,21 +19,11 @@ public class BookingServiceUtils {
         if (!item.getAvailable()) {
             throw new ValidationException("Item is not available for booking");
         }
-
-        if (dto.bookingEndDate().isBefore(dto.bookingStartDate()) || dto.bookingEndDate().equals(dto.bookingStartDate())) {
-            throw new ValidationException("End date must be after start date");
-        }
-
-        if (dto.bookingStartDate().isBefore(LocalDateTime.now())) {
-            throw new ValidationException("Start date cannot be in the past");
-        }
-
-
     }
 
     public static void validateCancellationRules(Booking booking, Long bookerId) {
         if (!Objects.equals(booking.getBooker().getId(), bookerId)) {
-            throw new ValidationException(String.format("Booking can't be cancelled by id=%d", bookerId));
+            throw new BookingAccessDeniedException(bookerId, booking.getId());
         }
 
         if (booking.getStatus() == BookingStatus.CANCELLED) {
@@ -53,7 +44,7 @@ public class BookingServiceUtils {
 
     public static void checkOwnerAndRequestor(Booking booking, Long requesterId) {
         if (!booking.getItem().getOwner().getId().equals(requesterId)) {
-            throw new ValidationException("Only item owner can manage booking");
+            throw new BookingAccessDeniedException(requesterId, booking.getId());
         }
     }
 }
