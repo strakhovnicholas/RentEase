@@ -7,5 +7,6 @@ import java.util.Map;
 
 public interface CommandService {
     List<CommentDto> getCommentsForItem(Long itemId);
+
     Map<Long, List<CommentDto>> getCommentsForItems(List<Long> itemIds);
 }
