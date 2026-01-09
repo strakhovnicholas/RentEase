@@ -6,8 +6,6 @@ import ru.practicum.shareit.comment.dto.CommentRequestDto;
 import ru.practicum.shareit.item.dto.ItemRequestDto;
 import ru.practicum.shareit.item.dto.ItemResponseDto;
 import ru.practicum.shareit.item.dto.ItemUpdateDto;
-
-import java.nio.file.AccessDeniedException;
 import java.util.Collection;
 
 public interface ItemService {

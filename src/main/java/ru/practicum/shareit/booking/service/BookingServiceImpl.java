@@ -64,7 +64,7 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     @Transactional
-    public BookingResponseDto cancelBooking(Long bookingId, Long bookerId){
+    public BookingResponseDto cancelBooking(Long bookingId, Long bookerId) {
         Booking booking = bookingRepository.findByIdWithItem(bookingId).orElseThrow(() -> new BookingNotFoundException(
                 String.format("Booking with id=%d not found", bookingId)));
 

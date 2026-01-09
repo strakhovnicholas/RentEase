@@ -6,6 +6,8 @@ import java.time.LocalDateTime;
 
 public interface ItemWithBookings {
     Item getItem();
+
     LocalDateTime getLastBooking();
+
     LocalDateTime getNextBooking();
 }

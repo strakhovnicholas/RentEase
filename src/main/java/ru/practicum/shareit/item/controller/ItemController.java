@@ -1,7 +1,6 @@
 package ru.practicum.shareit.item.controller;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -14,10 +13,7 @@ import ru.practicum.shareit.item.dto.ItemRequestDto;
 import ru.practicum.shareit.item.dto.ItemResponseDto;
 import ru.practicum.shareit.item.dto.ItemUpdateDto;
 import ru.practicum.shareit.item.service.ItemService;
-
-import java.nio.file.AccessDeniedException;
 import java.util.Collection;
-import java.util.Collections;
 
 /**
  * TODO Sprint add-controllers.
