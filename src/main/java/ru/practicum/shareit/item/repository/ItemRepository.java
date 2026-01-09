@@ -1,6 +1,5 @@
 package ru.practicum.shareit.item.repository;
 
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,7 +14,14 @@ public interface ItemRepository extends JpaRepository<Item,Long> {
             " LOWER(i.description) LIKE LOWER(CONCAT('%', :query, '%')))")
     Collection<Item> searchAvailableItems(@Param("query") String query);
 
-    @EntityGraph(attributePaths = {"request"})
-    Collection<Item> findByOwnerIdOrderByName(Long ownerId);
+    @Query("SELECT i, " +
+            "(SELECT MAX(b.bookingEndDate) FROM Booking b " +
+            " WHERE b.item.id = i.id AND b.status = 'APPROVED' AND b.bookingEndDate < CURRENT_TIMESTAMP) as lastBooking, " +
+            "(SELECT MIN(b.bookingStartDate) FROM Booking b " +
+            " WHERE b.item.id = i.id AND b.status = 'APPROVED' AND b.bookingStartDate > CURRENT_TIMESTAMP) as nextBooking " +
+            "FROM Item i " +
+            "WHERE i.owner.id = :ownerId " +
+            "ORDER BY i.name")
+    Collection<Object[]> findItemsWithBookingsByOwnerId(@Param("ownerId") Long ownerId);
 }
 
