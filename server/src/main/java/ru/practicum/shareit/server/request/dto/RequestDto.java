@@ -8,7 +8,8 @@ import java.util.List;
 public record RequestDto(
         Long id,
         String description,
-        Long requesterId ,
+        Long requesterId,
         Instant created,
         List<ItemForRequestDto> items
-) { }
+) {
+}

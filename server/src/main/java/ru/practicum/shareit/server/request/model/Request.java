@@ -9,7 +9,6 @@ import ru.practicum.shareit.server.item.model.Item;
 import ru.practicum.shareit.server.user.entity.User;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 
 @Entity
