@@ -12,4 +12,5 @@ public record CommentDto(
         Long itemId,
         Long authorId,
         String authorName
-) { }
+) {
+}
