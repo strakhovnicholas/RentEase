@@ -13,6 +13,7 @@ import java.util.Objects;
 public class BaseClient {
     protected final RestTemplate rest;
 
+    @SuppressWarnings("EI_EXPOSE_REP2")
     public BaseClient(@NonNull RestTemplate rest) {
         this.rest = Objects.requireNonNull(rest);;
     }
