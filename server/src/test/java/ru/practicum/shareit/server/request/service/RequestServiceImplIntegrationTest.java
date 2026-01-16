@@ -14,6 +14,7 @@ import ru.practicum.shareit.server.user.entity.User;
 import ru.practicum.shareit.server.user.repository.UserRepository;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,6 +60,8 @@ class RequestServiceImplIntegrationTest {
         assertEquals(description, createdRequest.description());
         assertEquals(userId, createdRequest.requesterId());
         assertNotNull(createdRequest.created());
+
+        // Используем сравнение с допуском для Instant
         assertTrue(createdRequest.created().isBefore(Instant.now().plusSeconds(1)));
 
         Optional<Request> savedRequest = requestRepository.findById(createdRequest.id());
@@ -97,11 +100,14 @@ class RequestServiceImplIntegrationTest {
 
         RequestDto createdRequest = requestService.createRequest(userId, description);
 
-        assertThat(createdRequest)
-                .hasNoNullFieldsOrPropertiesExcept("items");
+        // Используем AssertJ для лучшей читаемости
+        assertThat(createdRequest.id()).isNotNull();
+        assertThat(createdRequest.description()).isEqualTo(description);
+        assertThat(createdRequest.requesterId()).isEqualTo(userId);
+        assertThat(createdRequest.created()).isNotNull();
 
-        assertEquals(description, createdRequest.description());
-        assertEquals(userId, createdRequest.requesterId());
+        // Проверяем items отдельно, так как он может быть null
+        assertThat(createdRequest.items()).isNull();
     }
 
     @Test
@@ -140,7 +146,8 @@ class RequestServiceImplIntegrationTest {
         RequestDto request1 = requestService.createRequest(userId, description1);
         RequestDto request2 = requestService.createRequest(userId, description2);
 
-        assertEquals(request1.id() + 1, request2.id());
+        // Используем AssertJ для более читаемого сообщения об ошибке
+        assertThat(request2.id()).isEqualTo(request1.id() + 1);
     }
 
     @Test
@@ -181,5 +188,29 @@ class RequestServiceImplIntegrationTest {
         RequestDto createdRequest = requestService.createRequest(userId, description);
 
         assertEquals(description, createdRequest.description());
+    }
+
+    @Test
+    void createRequest_ShouldHaveConsistentTimestamps() {
+        String description = "Need a tool";
+
+        Instant beforeCreation = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        RequestDto createdRequest = requestService.createRequest(userId, description);
+        Instant afterCreation = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+
+        assertThat(createdRequest.created())
+                .isBetween(beforeCreation, afterCreation);
+    }
+
+    @Test
+    void createRequest_ShouldReturnTimestampWithReasonablePrecision() {
+        String description = "Test request";
+
+        RequestDto createdRequest = requestService.createRequest(userId, description);
+
+        // Проверяем что разница между текущим временем и временем создания не слишком велика
+        long timeDifference = Math.abs(Instant.now().toEpochMilli() - createdRequest.created().toEpochMilli());
+        assertTrue(timeDifference < 2000,
+                "Timestamp should be recent (difference: " + timeDifference + "ms)");
     }
 }

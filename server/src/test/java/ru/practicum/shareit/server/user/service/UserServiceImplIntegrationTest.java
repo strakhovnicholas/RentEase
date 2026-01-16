@@ -3,6 +3,8 @@ package ru.practicum.shareit.server.user.service;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.shareit.server.user.dto.UserCreateDto;
 import ru.practicum.shareit.server.user.dto.UserResponseDto;
 import ru.practicum.shareit.server.user.enums.UserRole;
@@ -11,6 +13,8 @@ import ru.practicum.shareit.server.user.exception.UserNotFoundException;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
+@ActiveProfiles("test")
+@Transactional
 class UserServiceImplIntegrationTest {
 
     @Autowired

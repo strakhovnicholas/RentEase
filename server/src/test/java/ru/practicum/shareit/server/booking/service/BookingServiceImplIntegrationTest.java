@@ -16,9 +16,11 @@ import ru.practicum.shareit.server.user.entity.User;
 import ru.practicum.shareit.server.user.repository.UserRepository;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("test")
@@ -44,7 +46,8 @@ class BookingServiceImplIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        now = LocalDateTime.now();
+        // Используем усечение до микросекунд для согласованности с БД
+        now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
 
         bookingRepository.deleteAll();
         itemRepository.deleteAll();
@@ -78,9 +81,14 @@ class BookingServiceImplIntegrationTest {
                 booker.getId(), "ALL", 0, 10);
 
         assertThat(result).hasSize(3);
-        assertThat(result.get(0).bookingStartDate()).isEqualTo(now.plusDays(5));
-        assertThat(result.get(1).bookingStartDate()).isEqualTo(now.minusDays(3));
-        assertThat(result.get(2).bookingStartDate()).isEqualTo(now.minusDays(10));
+
+        // Используем сравнение с допуском
+        assertThat(result.get(0).bookingStartDate())
+                .isCloseTo(now.plusDays(5), within(1, ChronoUnit.MICROS));
+        assertThat(result.get(1).bookingStartDate())
+                .isCloseTo(now.minusDays(3), within(1, ChronoUnit.MICROS));
+        assertThat(result.get(2).bookingStartDate())
+                .isCloseTo(now.minusDays(10), within(1, ChronoUnit.MICROS));
     }
 
     @Test
@@ -216,8 +224,8 @@ class BookingServiceImplIntegrationTest {
         Booking booking = new Booking();
         booking.setItem(item);
         booking.setBooker(booker);
-        booking.setBookingStartDate(start);
-        booking.setBookingEndDate(end);
+        booking.setBookingStartDate(start.truncatedTo(ChronoUnit.MICROS));
+        booking.setBookingEndDate(end.truncatedTo(ChronoUnit.MICROS));
         booking.setStatus(status);
         booking.setCreated(now);
         return bookingRepository.save(booking);
@@ -227,8 +235,8 @@ class BookingServiceImplIntegrationTest {
         Booking booking = new Booking();
         booking.setItem(item);
         booking.setBooker(booker);
-        booking.setBookingStartDate(start);
-        booking.setBookingEndDate(end);
+        booking.setBookingStartDate(start.truncatedTo(ChronoUnit.MICROS));
+        booking.setBookingEndDate(end.truncatedTo(ChronoUnit.MICROS));
         booking.setStatus(status);
         booking.setCreated(now);
         return bookingRepository.save(booking);

@@ -19,9 +19,11 @@ import ru.practicum.shareit.server.user.entity.User;
 import ru.practicum.shareit.server.user.repository.UserRepository;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -81,7 +83,8 @@ class ItemServiceImplIntegrationTest {
         item.setOwner(owner);
         item = itemRepository.save(item);
 
-        LocalDateTime now = LocalDateTime.now();
+        // Используем усечение до микросекунд для согласованности с БД
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
 
         pastBooking = new Booking();
         pastBooking.setItem(item);
@@ -141,8 +144,11 @@ class ItemServiceImplIntegrationTest {
         assertThat(result.lastBooking()).isNotNull();
         assertThat(result.nextBooking()).isNotNull();
 
-        assertThat(result.lastBooking()).isEqualTo(pastBooking.getBookingEndDate());
-        assertThat(result.nextBooking()).isEqualTo(futureBooking.getBookingStartDate());
+        // Используем сравнение с допуском в 1 микросекунду
+        assertThat(result.lastBooking())
+                .isCloseTo(pastBooking.getBookingEndDate(), within(1, ChronoUnit.MICROS));
+        assertThat(result.nextBooking())
+                .isCloseTo(futureBooking.getBookingStartDate(), within(1, ChronoUnit.MICROS));
 
         assertThat(result.comments()).hasSize(1);
         assertThat(result.comments().stream().toList().getFirst().text()).isEqualTo("Great item!");
@@ -202,7 +208,8 @@ class ItemServiceImplIntegrationTest {
 
         ItemResponseDto result = itemService.getItemById(item.getId(), owner.getId());
 
-        assertThat(result.lastBooking()).isEqualTo(pastBooking.getBookingEndDate());
+        assertThat(result.lastBooking())
+                .isCloseTo(pastBooking.getBookingEndDate(), within(1, ChronoUnit.MICROS));
         assertThat(result.nextBooking()).isNull();
     }
 
@@ -214,23 +221,26 @@ class ItemServiceImplIntegrationTest {
         ItemResponseDto result = itemService.getItemById(item.getId(), owner.getId());
 
         assertThat(result.lastBooking()).isNull();
-        assertThat(result.nextBooking()).isEqualTo(futureBooking.getBookingStartDate());
+        assertThat(result.nextBooking())
+                .isCloseTo(futureBooking.getBookingStartDate(), within(1, ChronoUnit.MICROS));
     }
 
     @Test
     void getItemById_WhenItemHasMultipleComments_ShouldReturnAllComments() {
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+
         Comment comment2 = new Comment();
         comment2.setText("Excellent!");
         comment2.setItem(item);
         comment2.setAuthor(otherUser);
-        comment2.setCreated(LocalDateTime.now().minusHours(2));
+        comment2.setCreated(now.minusHours(2));
         commentRepository.save(comment2);
 
         Comment comment3 = new Comment();
         comment3.setText("Very useful");
         comment3.setItem(item);
         comment3.setAuthor(booker);
-        comment3.setCreated(LocalDateTime.now().minusHours(3));
+        comment3.setCreated(now.minusHours(3));
         commentRepository.save(comment3);
 
         ItemResponseDto result = itemService.getItemById(item.getId(), owner.getId());

@@ -15,10 +15,12 @@ import ru.practicum.shareit.server.user.entity.User;
 import ru.practicum.shareit.server.user.repository.UserRepository;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("test")
@@ -44,9 +46,13 @@ class CommentServiceImplIntegrationTest {
     private Comment comment1;
     private Comment comment2;
     private Comment comment3;
+    private LocalDateTime now;
 
     @BeforeEach
     void setUp() {
+        // Используем усеченное время для согласованности с БД
+        now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+
         commentRepository.deleteAll();
         itemRepository.deleteAll();
         userRepository.deleteAll();
@@ -79,19 +85,19 @@ class CommentServiceImplIntegrationTest {
         comment1.setText("Great item!");
         comment1.setItem(item1);
         comment1.setAuthor(author);
-        comment1.setCreated(LocalDateTime.now().minusDays(2));
+        comment1.setCreated(now.minusDays(2));
 
         comment2 = new Comment();
         comment2.setText("Very useful, thanks!");
         comment2.setItem(item1);
         comment2.setAuthor(author);
-        comment2.setCreated(LocalDateTime.now().minusDays(1));
+        comment2.setCreated(now.minusDays(1));
 
         comment3 = new Comment();
         comment3.setText("Not bad");
         comment3.setItem(item2);
         comment3.setAuthor(author);
-        comment3.setCreated(LocalDateTime.now());
+        comment3.setCreated(now);
 
         commentRepository.saveAll(List.of(comment1, comment2, comment3));
     }
@@ -105,7 +111,6 @@ class CommentServiceImplIntegrationTest {
                 .extracting("text")
                 .containsExactly("Very useful, thanks!", "Great item!");
 
-        System.out.println(result);
         assertThat(result)
                 .extracting("authorName")
                 .containsOnly(author.getName());
@@ -175,5 +180,18 @@ class CommentServiceImplIntegrationTest {
 
         assertThat(commentsForItem1.get(0).text()).isEqualTo("Very useful, thanks!");
         assertThat(commentsForItem1.get(1).text()).isEqualTo("Great item!");
+    }
+
+    @Test
+    void getCommentsForItem_ShouldReturnCorrectCreatedDates() {
+        List<CommentDto> result = commentService.getCommentsForItem(item1.getId());
+
+        assertThat(result).hasSize(2);
+
+        // Проверяем что даты корректны (используя сравнение с допуском)
+        assertThat(result.get(0).created())
+                .isCloseTo(now.minusDays(1), within(1, ChronoUnit.MICROS));
+        assertThat(result.get(1).created())
+                .isCloseTo(now.minusDays(2), within(1, ChronoUnit.MICROS));
     }
 }
