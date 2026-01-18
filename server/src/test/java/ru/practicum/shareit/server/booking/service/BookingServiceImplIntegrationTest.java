@@ -3,41 +3,31 @@ package ru.practicum.shareit.server.booking.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.context.annotation.Import;
+import ru.practicum.shareit.server.AllMappersTestConfig;
 import ru.practicum.shareit.server.booking.dto.BookingResponseDto;
 import ru.practicum.shareit.server.booking.enums.BookingStatus;
 import ru.practicum.shareit.server.booking.model.Booking;
-import ru.practicum.shareit.server.booking.repository.BookingRepository;
 import ru.practicum.shareit.server.item.model.Item;
-import ru.practicum.shareit.server.item.repository.ItemRepository;
 import ru.practicum.shareit.server.user.entity.User;
-import ru.practicum.shareit.server.user.repository.UserRepository;
 
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.within;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@ActiveProfiles("test")
-@Transactional
+@DataJpaTest
+@Import({BookingServiceImpl.class, AllMappersTestConfig.class})
 class BookingServiceImplIntegrationTest {
 
     @Autowired
+    private TestEntityManager entityManager;
+
+    @Autowired
     private BookingService bookingService;
-
-    @Autowired
-    private BookingRepository bookingRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private ItemRepository itemRepository;
 
     private User owner;
     private User booker;
@@ -46,29 +36,26 @@ class BookingServiceImplIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // Используем усечение до микросекунд для согласованности с БД
-        now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
-
-        bookingRepository.deleteAll();
-        itemRepository.deleteAll();
-        userRepository.deleteAll();
+        now = LocalDateTime.now();
 
         owner = new User();
         owner.setName("Owner");
         owner.setEmail("owner@example.com");
-        owner = userRepository.save(owner);
+        entityManager.persist(owner);
 
         booker = new User();
         booker.setName("Booker");
         booker.setEmail("booker@example.com");
-        booker = userRepository.save(booker);
+        entityManager.persist(booker);
 
         item = new Item();
         item.setName("Test Item");
         item.setDescription("Test Description");
         item.setAvailable(true);
         item.setOwner(owner);
-        item = itemRepository.save(item);
+        entityManager.persist(item);
+
+        entityManager.flush();
     }
 
     @Test
@@ -81,14 +68,9 @@ class BookingServiceImplIntegrationTest {
                 booker.getId(), "ALL", 0, 10);
 
         assertThat(result).hasSize(3);
-
-        // Используем сравнение с допуском
-        assertThat(result.get(0).bookingStartDate())
-                .isCloseTo(now.plusDays(5), within(1, ChronoUnit.MICROS));
-        assertThat(result.get(1).bookingStartDate())
-                .isCloseTo(now.minusDays(3), within(1, ChronoUnit.MICROS));
-        assertThat(result.get(2).bookingStartDate())
-                .isCloseTo(now.minusDays(10), within(1, ChronoUnit.MICROS));
+        assertThat(result)
+                .extracting("status")
+                .containsExactly(BookingStatus.REJECTED, BookingStatus.APPROVED, BookingStatus.WAITING);
     }
 
     @Test
@@ -96,13 +78,19 @@ class BookingServiceImplIntegrationTest {
         createBooking(now.plusDays(1), now.plusDays(2), BookingStatus.WAITING);
         createBooking(now.plusDays(5), now.plusDays(6), BookingStatus.REJECTED);
 
-        assertThat(bookingService.getBookingsByBooker(booker.getId(), "WAITING", 0, 10))
+        List<BookingResponseDto> waitingBookings = bookingService.getBookingsByBooker(
+                booker.getId(), "WAITING", 0, 10);
+        assertThat(waitingBookings)
                 .hasSize(1)
-                .extracting("status").containsOnly(BookingStatus.WAITING);
+                .extracting("status")
+                .containsOnly(BookingStatus.WAITING);
 
-        assertThat(bookingService.getBookingsByBooker(booker.getId(), "REJECTED", 0, 10))
+        List<BookingResponseDto> rejectedBookings = bookingService.getBookingsByBooker(
+                booker.getId(), "REJECTED", 0, 10);
+        assertThat(rejectedBookings)
                 .hasSize(1)
-                .extracting("status").containsOnly(BookingStatus.REJECTED);
+                .extracting("status")
+                .containsOnly(BookingStatus.REJECTED);
     }
 
     @Test
@@ -129,7 +117,8 @@ class BookingServiceImplIntegrationTest {
         User otherUser = new User();
         otherUser.setName("Other");
         otherUser.setEmail("other@example.com");
-        otherUser = userRepository.save(otherUser);
+        entityManager.persist(otherUser);
+        entityManager.flush();
 
         List<BookingResponseDto> result = bookingService.getBookingsByBooker(
                 otherUser.getId(), "ALL", 0, 10);
@@ -144,7 +133,7 @@ class BookingServiceImplIntegrationTest {
         item2.setDescription("Description 2");
         item2.setAvailable(true);
         item2.setOwner(owner);
-        item2 = itemRepository.save(item2);
+        entityManager.persist(item2);
 
         createBooking(now.plusDays(1), now.plusDays(2), BookingStatus.WAITING);
         createBookingForItem(item2, now.plusDays(3), now.plusDays(4), BookingStatus.APPROVED);
@@ -152,14 +141,14 @@ class BookingServiceImplIntegrationTest {
         User otherOwner = new User();
         otherOwner.setName("Other Owner");
         otherOwner.setEmail("otherowner@example.com");
-        otherOwner = userRepository.save(otherOwner);
+        entityManager.persist(otherOwner);
 
         Item otherItem = new Item();
         otherItem.setName("Other Item");
         otherItem.setDescription("Other Desc");
         otherItem.setAvailable(true);
         otherItem.setOwner(otherOwner);
-        otherItem = itemRepository.save(otherItem);
+        entityManager.persist(otherItem);
 
         createBookingForItem(otherItem, now.plusDays(5), now.plusDays(6), BookingStatus.WAITING);
 
@@ -167,7 +156,9 @@ class BookingServiceImplIntegrationTest {
                 owner.getId(), "ALL", 0, 10);
 
         assertThat(result).hasSize(2);
-        assertThat(result).extracting("item.ownerId").containsOnly(owner.getId());
+        assertThat(result)
+                .extracting(dto -> dto.item().ownerId())
+                .containsOnly(owner.getId());
     }
 
     @Test
@@ -175,9 +166,12 @@ class BookingServiceImplIntegrationTest {
         createBooking(now.plusDays(1), now.plusDays(2), BookingStatus.WAITING);
         createBooking(now.plusDays(5), now.plusDays(6), BookingStatus.REJECTED);
 
-        assertThat(bookingService.getBookingsByOwner(owner.getId(), "WAITING", 0, 10))
+        List<BookingResponseDto> waitingBookings = bookingService.getBookingsByOwner(
+                owner.getId(), "WAITING", 0, 10);
+        assertThat(waitingBookings)
                 .hasSize(1)
-                .extracting("status").containsOnly(BookingStatus.WAITING);
+                .extracting("status")
+                .containsOnly(BookingStatus.WAITING);
     }
 
     @Test
@@ -186,15 +180,21 @@ class BookingServiceImplIntegrationTest {
         createBooking(now.minusDays(2), now.plusDays(1), BookingStatus.APPROVED);
         createBooking(now.plusDays(5), now.plusDays(10), BookingStatus.WAITING);
 
-        assertThat(bookingService.getBookingsByOwner(owner.getId(), "PAST", 0, 10))
+        List<BookingResponseDto> pastBookings = bookingService.getBookingsByOwner(
+                owner.getId(), "PAST", 0, 10);
+        assertThat(pastBookings)
                 .hasSize(1)
                 .allMatch(b -> b.bookingEndDate().isBefore(now));
 
-        assertThat(bookingService.getBookingsByOwner(owner.getId(), "CURRENT", 0, 10))
+        List<BookingResponseDto> currentBookings = bookingService.getBookingsByOwner(
+                owner.getId(), "CURRENT", 0, 10);
+        assertThat(currentBookings)
                 .hasSize(1)
                 .allMatch(b -> b.bookingStartDate().isBefore(now) && b.bookingEndDate().isAfter(now));
 
-        assertThat(bookingService.getBookingsByOwner(owner.getId(), "FUTURE", 0, 10))
+        List<BookingResponseDto> futureBookings = bookingService.getBookingsByOwner(
+                owner.getId(), "FUTURE", 0, 10);
+        assertThat(futureBookings)
                 .hasSize(1)
                 .allMatch(b -> b.bookingStartDate().isAfter(now));
     }
@@ -204,7 +204,8 @@ class BookingServiceImplIntegrationTest {
         User userWithoutItems = new User();
         userWithoutItems.setName("No Items");
         userWithoutItems.setEmail("noitems@example.com");
-        userWithoutItems = userRepository.save(userWithoutItems);
+        entityManager.persist(userWithoutItems);
+        entityManager.flush();
 
         List<BookingResponseDto> result = bookingService.getBookingsByOwner(
                 userWithoutItems.getId(), "ALL", 0, 10);
@@ -214,31 +215,31 @@ class BookingServiceImplIntegrationTest {
 
     @Test
     void getBookingsByOwner_WithInvalidUserId_ShouldThrowException() {
-        assertThat(org.junit.jupiter.api.Assertions.assertThrows(
-                RuntimeException.class,
-                () -> bookingService.getBookingsByOwner(999L, "ALL", 0, 10)
-        )).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> bookingService.getBookingsByOwner(999L, "ALL", 0, 10))
+                .isInstanceOf(RuntimeException.class);
     }
 
-    private Booking createBooking(LocalDateTime start, LocalDateTime end, BookingStatus status) {
+    private void createBooking(LocalDateTime start, LocalDateTime end, BookingStatus status) {
         Booking booking = new Booking();
         booking.setItem(item);
         booking.setBooker(booker);
-        booking.setBookingStartDate(start.truncatedTo(ChronoUnit.MICROS));
-        booking.setBookingEndDate(end.truncatedTo(ChronoUnit.MICROS));
+        booking.setBookingStartDate(start);
+        booking.setBookingEndDate(end);
         booking.setStatus(status);
         booking.setCreated(now);
-        return bookingRepository.save(booking);
+        entityManager.persist(booking);
+        entityManager.flush();
     }
 
-    private Booking createBookingForItem(Item item, LocalDateTime start, LocalDateTime end, BookingStatus status) {
+    private void createBookingForItem(Item item, LocalDateTime start, LocalDateTime end, BookingStatus status) {
         Booking booking = new Booking();
         booking.setItem(item);
         booking.setBooker(booker);
-        booking.setBookingStartDate(start.truncatedTo(ChronoUnit.MICROS));
-        booking.setBookingEndDate(end.truncatedTo(ChronoUnit.MICROS));
+        booking.setBookingStartDate(start);
+        booking.setBookingEndDate(end);
         booking.setStatus(status);
         booking.setCreated(now);
-        return bookingRepository.save(booking);
+        entityManager.persist(booking);
+        entityManager.flush();
     }
 }

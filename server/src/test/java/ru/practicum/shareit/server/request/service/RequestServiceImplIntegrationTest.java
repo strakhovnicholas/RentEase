@@ -3,27 +3,27 @@ package ru.practicum.shareit.server.request.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.context.annotation.Import;
+import ru.practicum.shareit.server.AllMappersTestConfig;
 import ru.practicum.shareit.server.item.exceptions.UserNotFoundException;
 import ru.practicum.shareit.server.request.dto.RequestDto;
 import ru.practicum.shareit.server.request.model.Request;
 import ru.practicum.shareit.server.request.repository.RequestRepository;
 import ru.practicum.shareit.server.user.entity.User;
-import ru.practicum.shareit.server.user.repository.UserRepository;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@Transactional
+@DataJpaTest
+@Import({RequestServiceImpl.class, AllMappersTestConfig.class})
 class RequestServiceImplIntegrationTest {
+
+    @Autowired
+    private TestEntityManager entityManager;
 
     @Autowired
     private RequestService requestService;
@@ -31,21 +31,17 @@ class RequestServiceImplIntegrationTest {
     @Autowired
     private RequestRepository requestRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
     private User testUser;
     private Long userId;
 
     @BeforeEach
     void setUp() {
-        requestRepository.deleteAll();
-        userRepository.deleteAll();
-
         testUser = new User();
         testUser.setName("Test User");
         testUser.setEmail("test@example.com");
-        testUser = userRepository.save(testUser);
+        entityManager.persist(testUser);
+        entityManager.flush();
+
         userId = testUser.getId();
     }
 
@@ -55,19 +51,16 @@ class RequestServiceImplIntegrationTest {
 
         RequestDto createdRequest = requestService.createRequest(userId, description);
 
-        assertNotNull(createdRequest);
-        assertNotNull(createdRequest.id());
-        assertEquals(description, createdRequest.description());
-        assertEquals(userId, createdRequest.requesterId());
-        assertNotNull(createdRequest.created());
+        assertThat(createdRequest).isNotNull();
+        assertThat(createdRequest.id()).isNotNull();
+        assertThat(createdRequest.description()).isEqualTo(description);
+        assertThat(createdRequest.requesterId()).isEqualTo(userId);
+        assertThat(createdRequest.created()).isNotNull();
 
-        // Используем сравнение с допуском для Instant
-        assertTrue(createdRequest.created().isBefore(Instant.now().plusSeconds(1)));
-
-        Optional<Request> savedRequest = requestRepository.findById(createdRequest.id());
-        assertTrue(savedRequest.isPresent());
-        assertEquals(description, savedRequest.get().getDescription());
-        assertEquals(userId, savedRequest.get().getRequester().getId());
+        Request savedRequest = entityManager.find(Request.class, createdRequest.id());
+        assertThat(savedRequest).isNotNull();
+        assertThat(savedRequest.getDescription()).isEqualTo(description);
+        assertThat(savedRequest.getRequester().getId()).isEqualTo(userId);
     }
 
     @Test
@@ -75,11 +68,10 @@ class RequestServiceImplIntegrationTest {
         Long nonExistentUserId = 999L;
         String description = "Need a drill";
 
-        assertThrows(UserNotFoundException.class, () -> {
-            requestService.createRequest(nonExistentUserId, description);
-        });
+        assertThatThrownBy(() -> requestService.createRequest(nonExistentUserId, description))
+                .isInstanceOf(UserNotFoundException.class);
 
-        assertEquals(0, requestRepository.count());
+        assertThat(requestRepository.count()).isZero();
     }
 
     @Test
@@ -89,9 +81,9 @@ class RequestServiceImplIntegrationTest {
 
         RequestDto createdRequest = requestService.createRequest(userId, description);
 
-        assertNotNull(createdRequest.created());
-        assertTrue(createdRequest.created().isAfter(beforeCreation));
-        assertTrue(createdRequest.created().isBefore(Instant.now().plusSeconds(1)));
+        assertThat(createdRequest.created()).isNotNull();
+        assertThat(createdRequest.created()).isAfter(beforeCreation);
+        assertThat(createdRequest.created()).isBefore(Instant.now().plusSeconds(1));
     }
 
     @Test
@@ -100,13 +92,10 @@ class RequestServiceImplIntegrationTest {
 
         RequestDto createdRequest = requestService.createRequest(userId, description);
 
-        // Используем AssertJ для лучшей читаемости
         assertThat(createdRequest.id()).isNotNull();
         assertThat(createdRequest.description()).isEqualTo(description);
         assertThat(createdRequest.requesterId()).isEqualTo(userId);
         assertThat(createdRequest.created()).isNotNull();
-
-        // Проверяем items отдельно, так как он может быть null
         assertThat(createdRequest.items()).isNull();
     }
 
@@ -116,7 +105,7 @@ class RequestServiceImplIntegrationTest {
 
         RequestDto createdRequest = requestService.createRequest(userId, emptyDescription);
 
-        assertEquals(emptyDescription, createdRequest.description());
+        assertThat(createdRequest.description()).isEqualTo(emptyDescription);
     }
 
     @Test
@@ -127,15 +116,15 @@ class RequestServiceImplIntegrationTest {
         RequestDto request1 = requestService.createRequest(userId, description1);
         RequestDto request2 = requestService.createRequest(userId, description2);
 
-        assertNotEquals(request1.id(), request2.id());
-        assertEquals(description1, request1.description());
-        assertEquals(description2, request2.description());
-        assertEquals(userId, request1.requesterId());
-        assertEquals(userId, request2.requesterId());
+        assertThat(request1.id()).isNotEqualTo(request2.id());
+        assertThat(request1.description()).isEqualTo(description1);
+        assertThat(request2.description()).isEqualTo(description2);
+        assertThat(request1.requesterId()).isEqualTo(userId);
+        assertThat(request2.requesterId()).isEqualTo(userId);
 
-        assertEquals(2, requestRepository.count());
-        assertTrue(requestRepository.findById(request1.id()).isPresent());
-        assertTrue(requestRepository.findById(request2.id()).isPresent());
+        assertThat(requestRepository.count()).isEqualTo(2);
+        assertThat(entityManager.find(Request.class, request1.id())).isNotNull();
+        assertThat(entityManager.find(Request.class, request2.id())).isNotNull();
     }
 
     @Test
@@ -146,7 +135,6 @@ class RequestServiceImplIntegrationTest {
         RequestDto request1 = requestService.createRequest(userId, description1);
         RequestDto request2 = requestService.createRequest(userId, description2);
 
-        // Используем AssertJ для более читаемого сообщения об ошибке
         assertThat(request2.id()).isEqualTo(request1.id() + 1);
     }
 
@@ -156,7 +144,7 @@ class RequestServiceImplIntegrationTest {
 
         RequestDto createdRequest = requestService.createRequest(userId, description);
 
-        assertNull(createdRequest.items());
+        assertThat(createdRequest.items()).isNull();
     }
 
     @Test
@@ -165,10 +153,10 @@ class RequestServiceImplIntegrationTest {
 
         RequestDto createdRequest = requestService.createRequest(userId, description);
 
-        Optional<Request> savedRequest = requestRepository.findById(createdRequest.id());
-        assertTrue(savedRequest.isPresent());
-        assertEquals(testUser.getId(), savedRequest.get().getRequester().getId());
-        assertEquals(testUser.getName(), savedRequest.get().getRequester().getName());
+        Request savedRequest = entityManager.find(Request.class, createdRequest.id());
+        assertThat(savedRequest).isNotNull();
+        assertThat(savedRequest.getRequester().getId()).isEqualTo(testUser.getId());
+        assertThat(savedRequest.getRequester().getName()).isEqualTo(testUser.getName());
     }
 
     @Test
@@ -177,8 +165,8 @@ class RequestServiceImplIntegrationTest {
 
         RequestDto createdRequest = requestService.createRequest(userId, longDescription);
 
-        assertEquals(longDescription, createdRequest.description());
-        assertEquals(longDescription.length(), createdRequest.description().length());
+        assertThat(createdRequest.description()).isEqualTo(longDescription);
+        assertThat(createdRequest.description().length()).isEqualTo(longDescription.length());
     }
 
     @Test
@@ -187,19 +175,18 @@ class RequestServiceImplIntegrationTest {
 
         RequestDto createdRequest = requestService.createRequest(userId, description);
 
-        assertEquals(description, createdRequest.description());
+        assertThat(createdRequest.description()).isEqualTo(description);
     }
 
     @Test
     void createRequest_ShouldHaveConsistentTimestamps() {
         String description = "Need a tool";
 
-        Instant beforeCreation = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        Instant beforeCreation = Instant.now();
         RequestDto createdRequest = requestService.createRequest(userId, description);
-        Instant afterCreation = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        Instant afterCreation = Instant.now();
 
-        assertThat(createdRequest.created())
-                .isBetween(beforeCreation, afterCreation);
+        assertThat(createdRequest.created()).isBetween(beforeCreation, afterCreation);
     }
 
     @Test
@@ -208,9 +195,7 @@ class RequestServiceImplIntegrationTest {
 
         RequestDto createdRequest = requestService.createRequest(userId, description);
 
-        // Проверяем что разница между текущим временем и временем создания не слишком велика
         long timeDifference = Math.abs(Instant.now().toEpochMilli() - createdRequest.created().toEpochMilli());
-        assertTrue(timeDifference < 2000,
-                "Timestamp should be recent (difference: " + timeDifference + "ms)");
+        assertThat(timeDifference).isLessThan(2000);
     }
 }

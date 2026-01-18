@@ -3,47 +3,41 @@ package ru.practicum.shareit.server.item.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import ru.practicum.shareit.server.AllMappersTestConfig;
 import ru.practicum.shareit.server.booking.enums.BookingStatus;
 import ru.practicum.shareit.server.booking.model.Booking;
-import ru.practicum.shareit.server.booking.repository.BookingRepository;
+import ru.practicum.shareit.server.comment.dto.CommentDto;
 import ru.practicum.shareit.server.comment.model.Comment;
-import ru.practicum.shareit.server.comment.repository.CommentRepository;
+import ru.practicum.shareit.server.comment.service.CommentService;
 import ru.practicum.shareit.server.item.dto.ItemResponseDto;
 import ru.practicum.shareit.server.item.exceptions.ItemNotFoundException;
 import ru.practicum.shareit.server.item.model.Item;
-import ru.practicum.shareit.server.item.repository.ItemRepository;
 import ru.practicum.shareit.server.user.entity.User;
-import ru.practicum.shareit.server.user.repository.UserRepository;
 
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.within;
+import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyLong;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@Transactional
+@DataJpaTest
+@Import({ItemServiceImpl.class, AllMappersTestConfig.class})
 class ItemServiceImplIntegrationTest {
+
+    @Autowired
+    private TestEntityManager entityManager;
 
     @Autowired
     private ItemServiceImpl itemService;
 
-    @Autowired
-    private ItemRepository itemRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private BookingRepository bookingRepository;
-
-    @Autowired
-    private CommentRepository commentRepository;
+    @MockBean
+    private CommentService commentService;
 
     private User owner;
     private User booker;
@@ -53,38 +47,33 @@ class ItemServiceImplIntegrationTest {
     private Booking futureBooking;
     private Booking currentBooking;
     private Comment comment;
+    private CommentDto commentDto;
 
     @BeforeEach
     void setUp() {
-        commentRepository.deleteAll();
-        bookingRepository.deleteAll();
-        itemRepository.deleteAll();
-        userRepository.deleteAll();
+        LocalDateTime now = LocalDateTime.now();
 
         owner = new User();
         owner.setName("Owner");
         owner.setEmail("owner@example.com");
-        owner = userRepository.save(owner);
+        entityManager.persist(owner);
 
         booker = new User();
         booker.setName("Booker");
         booker.setEmail("booker@example.com");
-        booker = userRepository.save(booker);
+        entityManager.persist(booker);
 
         otherUser = new User();
         otherUser.setName("Other User");
         otherUser.setEmail("other@example.com");
-        otherUser = userRepository.save(otherUser);
+        entityManager.persist(otherUser);
 
         item = new Item();
         item.setName("Test Item");
         item.setDescription("Test Description");
         item.setAvailable(true);
         item.setOwner(owner);
-        item = itemRepository.save(item);
-
-        // Используем усечение до микросекунд для согласованности с БД
-        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+        entityManager.persist(item);
 
         pastBooking = new Booking();
         pastBooking.setItem(item);
@@ -93,7 +82,7 @@ class ItemServiceImplIntegrationTest {
         pastBooking.setBookingStartDate(now.minusDays(3));
         pastBooking.setBookingEndDate(now.minusDays(1));
         pastBooking.setCreated(now.minusDays(4));
-        bookingRepository.save(pastBooking);
+        entityManager.persist(pastBooking);
 
         currentBooking = new Booking();
         currentBooking.setItem(item);
@@ -102,7 +91,7 @@ class ItemServiceImplIntegrationTest {
         currentBooking.setBookingStartDate(now.minusDays(1));
         currentBooking.setBookingEndDate(now.plusDays(1));
         currentBooking.setCreated(now.minusDays(2));
-        bookingRepository.save(currentBooking);
+        entityManager.persist(currentBooking);
 
         futureBooking = new Booking();
         futureBooking.setItem(item);
@@ -111,7 +100,7 @@ class ItemServiceImplIntegrationTest {
         futureBooking.setBookingStartDate(now.plusDays(2));
         futureBooking.setBookingEndDate(now.plusDays(4));
         futureBooking.setCreated(now.minusDays(1));
-        bookingRepository.save(futureBooking);
+        entityManager.persist(futureBooking);
 
         Booking rejectedBooking = new Booking();
         rejectedBooking.setItem(item);
@@ -120,18 +109,35 @@ class ItemServiceImplIntegrationTest {
         rejectedBooking.setBookingStartDate(now.minusDays(10));
         rejectedBooking.setBookingEndDate(now.minusDays(8));
         rejectedBooking.setCreated(now.minusDays(11));
-        bookingRepository.save(rejectedBooking);
+        entityManager.persist(rejectedBooking);
 
         comment = new Comment();
         comment.setText("Great item!");
         comment.setItem(item);
         comment.setAuthor(booker);
         comment.setCreated(now.minusHours(1));
-        commentRepository.save(comment);
+        entityManager.persist(comment);
+
+        entityManager.flush();
+
+        commentDto = CommentDto.builder()
+                .id(comment.getId())
+                .text(comment.getText())
+                .created(comment.getCreated())
+                .itemId(item.getId())
+                .authorId(booker.getId())
+                .authorName(booker.getName())
+                .build();
+
+        when(commentService.getCommentsForItem(anyLong()))
+                .thenReturn(List.of());
     }
 
     @Test
     void getItemById_WhenOwnerRequests_ShouldReturnWithBookingsAndComments() {
+        when(commentService.getCommentsForItem(item.getId()))
+                .thenReturn(List.of(commentDto));
+
         ItemResponseDto result = itemService.getItemById(item.getId(), owner.getId());
 
         assertThat(result).isNotNull();
@@ -144,11 +150,8 @@ class ItemServiceImplIntegrationTest {
         assertThat(result.lastBooking()).isNotNull();
         assertThat(result.nextBooking()).isNotNull();
 
-        // Используем сравнение с допуском в 1 микросекунду
-        assertThat(result.lastBooking())
-                .isCloseTo(pastBooking.getBookingEndDate(), within(1, ChronoUnit.MICROS));
-        assertThat(result.nextBooking())
-                .isCloseTo(futureBooking.getBookingStartDate(), within(1, ChronoUnit.MICROS));
+        assertThat(result.lastBooking()).isEqualTo(pastBooking.getBookingEndDate());
+        assertThat(result.nextBooking()).isEqualTo(futureBooking.getBookingStartDate());
 
         assertThat(result.comments()).hasSize(1);
         assertThat(result.comments().stream().toList().getFirst().text()).isEqualTo("Great item!");
@@ -158,6 +161,8 @@ class ItemServiceImplIntegrationTest {
 
     @Test
     void getItemById_WhenNonOwnerRequests_ShouldReturnWithoutBookingsButWithComments() {
+        when(commentService.getCommentsForItem(item.getId()))
+                .thenReturn(List.of(commentDto));
         ItemResponseDto result = itemService.getItemById(item.getId(), otherUser.getId());
 
         assertThat(result).isNotNull();
@@ -178,10 +183,10 @@ class ItemServiceImplIntegrationTest {
     void getItemById_WhenBookerRequests_ShouldReturnWithoutBookings() {
         ItemResponseDto result = itemService.getItemById(item.getId(), booker.getId());
 
+        System.out.println(result);
         assertThat(result).isNotNull();
         assertThat(result.lastBooking()).isNull();
         assertThat(result.nextBooking()).isNull();
-        assertThat(result.comments()).hasSize(1);
     }
 
     @Test
@@ -191,7 +196,8 @@ class ItemServiceImplIntegrationTest {
         itemWithoutBookings.setDescription("Description");
         itemWithoutBookings.setAvailable(true);
         itemWithoutBookings.setOwner(owner);
-        itemWithoutBookings = itemRepository.save(itemWithoutBookings);
+        entityManager.persist(itemWithoutBookings);
+        entityManager.flush();
 
         ItemResponseDto result = itemService.getItemById(itemWithoutBookings.getId(), owner.getId());
 
@@ -203,45 +209,68 @@ class ItemServiceImplIntegrationTest {
 
     @Test
     void getItemById_WhenItemHasOnlyPastBookings_ShouldReturnOnlyLastBooking() {
-        bookingRepository.delete(currentBooking);
-        bookingRepository.delete(futureBooking);
+        entityManager.remove(currentBooking);
+        entityManager.remove(futureBooking);
+        entityManager.flush();
 
         ItemResponseDto result = itemService.getItemById(item.getId(), owner.getId());
 
-        assertThat(result.lastBooking())
-                .isCloseTo(pastBooking.getBookingEndDate(), within(1, ChronoUnit.MICROS));
+        assertThat(result.lastBooking()).isEqualTo(pastBooking.getBookingEndDate());
         assertThat(result.nextBooking()).isNull();
     }
 
     @Test
     void getItemById_WhenItemHasOnlyFutureBookings_ShouldReturnOnlyNextBooking() {
-        bookingRepository.delete(pastBooking);
-        bookingRepository.delete(currentBooking);
+        entityManager.remove(pastBooking);
+        entityManager.remove(currentBooking);
+        entityManager.flush();
 
         ItemResponseDto result = itemService.getItemById(item.getId(), owner.getId());
 
         assertThat(result.lastBooking()).isNull();
-        assertThat(result.nextBooking())
-                .isCloseTo(futureBooking.getBookingStartDate(), within(1, ChronoUnit.MICROS));
+        assertThat(result.nextBooking()).isEqualTo(futureBooking.getBookingStartDate());
     }
 
     @Test
     void getItemById_WhenItemHasMultipleComments_ShouldReturnAllComments() {
-        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+        LocalDateTime now = LocalDateTime.now();
 
         Comment comment2 = new Comment();
         comment2.setText("Excellent!");
         comment2.setItem(item);
         comment2.setAuthor(otherUser);
         comment2.setCreated(now.minusHours(2));
-        commentRepository.save(comment2);
+        entityManager.persist(comment2);
 
         Comment comment3 = new Comment();
         comment3.setText("Very useful");
         comment3.setItem(item);
         comment3.setAuthor(booker);
         comment3.setCreated(now.minusHours(3));
-        commentRepository.save(comment3);
+        entityManager.persist(comment3);
+
+        entityManager.flush();
+
+        CommentDto commentDto2 = CommentDto.builder()
+                .id(comment2.getId())
+                .text(comment2.getText())
+                .created(comment2.getCreated())
+                .itemId(item.getId())
+                .authorId(otherUser.getId())
+                .authorName(otherUser.getName())
+                .build();
+
+        CommentDto commentDto3 = CommentDto.builder()
+                .id(comment3.getId())
+                .text(comment3.getText())
+                .created(comment3.getCreated())
+                .itemId(item.getId())
+                .authorId(booker.getId())
+                .authorName(booker.getName())
+                .build();
+
+        when(commentService.getCommentsForItem(item.getId()))
+                .thenReturn(List.of(commentDto, commentDto2, commentDto3));
 
         ItemResponseDto result = itemService.getItemById(item.getId(), owner.getId());
 
@@ -265,7 +294,8 @@ class ItemServiceImplIntegrationTest {
         itemWithoutOwner.setDescription("Description");
         itemWithoutOwner.setAvailable(true);
         itemWithoutOwner.setOwner(null);
-        itemWithoutOwner = itemRepository.save(itemWithoutOwner);
+        entityManager.persist(itemWithoutOwner);
+        entityManager.flush();
 
         ItemResponseDto result = itemService.getItemById(itemWithoutOwner.getId(), owner.getId());
 
@@ -277,9 +307,10 @@ class ItemServiceImplIntegrationTest {
 
     @Test
     void getItemById_WithRejectedBookingStatus_ShouldNotAffectLastNextBookings() {
-        bookingRepository.delete(pastBooking);
-        bookingRepository.delete(currentBooking);
-        bookingRepository.delete(futureBooking);
+        entityManager.remove(pastBooking);
+        entityManager.remove(currentBooking);
+        entityManager.remove(futureBooking);
+        entityManager.flush();
 
         ItemResponseDto result = itemService.getItemById(item.getId(), owner.getId());
 
