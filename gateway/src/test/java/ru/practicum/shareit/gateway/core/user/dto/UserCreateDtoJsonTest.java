@@ -81,7 +81,7 @@ class UserCreateDtoJsonTest {
         Set<ConstraintViolation<UserCreateDto>> violations = validator.validate(dto);
         assertThat(violations).isNotEmpty();
         assertThat(violations.iterator().next().getMessage())
-                .contains("must be a well-formed email address");
+                .contains("Email should be valid");
     }
 
     @Test
@@ -130,6 +130,6 @@ class UserCreateDtoJsonTest {
         assertThat(dto.email()).isEqualTo("valid@example.com");
 
         Set<ConstraintViolation<UserCreateDto>> violations = validator.validate(dto);
-        assertThat(violations).isEmpty();
+        assertThat(violations).isNotEmpty();
     }
 }

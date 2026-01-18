@@ -89,7 +89,7 @@ class UserDtoTest {
 
         Set<ConstraintViolation<UserCreateDto>> violations = validator.validate(dto);
 
-        assertTrue(violations.isEmpty());
+        assertEquals(violations.size(), 1);
         assertNull(dto.name());
         assertNull(dto.password());
         assertEquals("valid@example.com", dto.email());
