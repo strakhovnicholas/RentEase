@@ -1,7 +1,5 @@
 package ru.practicum.shareit.server.request;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -27,7 +25,7 @@ public class RequestController {
 
     @GetMapping()
     public ResponseEntity<List<RequestDto>> findUserOwnRequests(
-            @PositiveOrZero @RequestHeader(value = RequestController.USER_ID_HEADER) Long requestorId,
+            @RequestHeader(value = RequestController.USER_ID_HEADER) Long requestorId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         List<RequestDto> requests = requestService.findUserOwnRequests(requestorId, pageable);
@@ -36,7 +34,7 @@ public class RequestController {
 
     @GetMapping("/all")
     public ResponseEntity<List<RequestDto>> findOtherUsersRequests(
-            @PositiveOrZero @RequestHeader(value = RequestController.USER_ID_HEADER) Long requestorId,
+            @RequestHeader(value = RequestController.USER_ID_HEADER) Long requestorId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         List<RequestDto> requests = requestService.findOtherUsersRequests(requestorId, pageable);
@@ -45,15 +43,15 @@ public class RequestController {
 
     @GetMapping("{requestId}")
     public ResponseEntity<RequestDto> findRequestById(
-            @PositiveOrZero @PathVariable("requestId") Long requestId) {
+            @PathVariable("requestId") Long requestId) {
         RequestDto request = requestService.findRequestById(requestId);
         return ResponseEntity.ok(request);
     }
 
     @PostMapping
     public ResponseEntity<RequestDto> createRequest(
-            @PositiveOrZero @RequestHeader(USER_ID_HEADER) Long userId,
-            @RequestBody @Valid CreateRequestDto requestDto) {
+            @RequestHeader(USER_ID_HEADER) Long userId,
+            @RequestBody CreateRequestDto requestDto) {
 
         RequestDto created = requestService.createRequest(userId, requestDto.description());
         return ResponseEntity.status(201).body(created);

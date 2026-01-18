@@ -1,17 +1,11 @@
 package ru.practicum.shareit.server.booking;
 
 
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.PositiveOrZero;
 import ru.practicum.shareit.server.booking.dto.BookingCreateDto;
 import ru.practicum.shareit.server.booking.dto.BookingResponseDto;
 import ru.practicum.shareit.server.booking.service.BookingService;
@@ -21,7 +15,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/bookings")
 @RequiredArgsConstructor
-@Validated
 @Slf4j
 public class BookingController {
 
@@ -30,8 +23,8 @@ public class BookingController {
 
     @PostMapping
     public ResponseEntity<BookingResponseDto> createBooking(
-            @RequestBody @Valid BookingCreateDto requestDto,
-            @PositiveOrZero @RequestHeader(USER_ID_HEADER) Long userId) {
+            @RequestBody BookingCreateDto requestDto,
+            @RequestHeader(USER_ID_HEADER) Long userId) {
 
         log.info("POST /bookings - Creating booking for user: {}, item: {}",
                 userId, requestDto.itemId());
@@ -42,8 +35,8 @@ public class BookingController {
 
     @PatchMapping("/{bookingId}")
     public ResponseEntity<BookingResponseDto> approveBooking(
-            @PositiveOrZero @PathVariable Long bookingId,
-            @NotNull @RequestParam Boolean approved,
+            @PathVariable Long bookingId,
+            @RequestParam Boolean approved,
             @RequestHeader(USER_ID_HEADER) Long userId) {
         log.info("PATCH /bookings/{} - User {} {} booking",
                 bookingId, userId, approved ? "approving" : "rejecting");
@@ -54,7 +47,7 @@ public class BookingController {
 
     @GetMapping("/{bookingId}")
     public ResponseEntity<BookingResponseDto> getBooking(
-            @PositiveOrZero @PathVariable Long bookingId,
+            @PathVariable Long bookingId,
             @RequestHeader(USER_ID_HEADER) Long userId) {
 
         log.info("GET /bookings/{} - Getting booking for user: {}", bookingId, userId);
@@ -66,10 +59,10 @@ public class BookingController {
 
     @GetMapping("/owner")
     public ResponseEntity<List<BookingResponseDto>> getOwnerBookings(
-            @PositiveOrZero @RequestHeader(USER_ID_HEADER) Long userId,
+            @RequestHeader(USER_ID_HEADER) Long userId,
             @RequestParam(defaultValue = "ALL") String state,
-            @RequestParam(defaultValue = "0") @PositiveOrZero int from,
-            @RequestParam(defaultValue = "10") @Positive int size) {
+            @RequestParam(defaultValue = "0")  int from,
+            @RequestParam(defaultValue = "10") int size) {
 
         log.info("GET /bookings - Getting bookings for owner: {}, state: {}, from: {}, size: {}",
                 userId, state, from, size);
@@ -80,10 +73,10 @@ public class BookingController {
 
     @GetMapping
     public ResponseEntity<List<BookingResponseDto>> getUserBookings(
-            @PositiveOrZero @RequestHeader(USER_ID_HEADER) Long userId,
+            @RequestHeader(USER_ID_HEADER) Long userId,
             @RequestParam(defaultValue = "ALL") String state,
-            @RequestParam(defaultValue = "0") @PositiveOrZero int from,
-            @RequestParam(defaultValue = "10") @Positive int size) {
+            @RequestParam(defaultValue = "0") int from,
+            @RequestParam(defaultValue = "10") int size) {
 
         log.info("GET /bookings - Getting bookings for user: {}, state: {}, from: {}, size: {}",
                 userId, state, from, size);
@@ -94,7 +87,7 @@ public class BookingController {
 
     @PatchMapping("/{bookingId}/cancel")
     public ResponseEntity<BookingResponseDto> cancelBooking(
-            @PositiveOrZero @PathVariable Long bookingId,
+            @PathVariable Long bookingId,
             @RequestHeader(USER_ID_HEADER) Long userId) {
 
         log.info("PATCH /bookings/{}/cancel - User {} cancelling booking",

@@ -1,7 +1,5 @@
 package ru.practicum.shareit.server.item;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -29,7 +27,7 @@ public class ItemController {
 
     @GetMapping("/{itemId}")
     public ItemResponseDto getItemById(
-            @PositiveOrZero @PathVariable("itemId") Long itemId,
+            @PathVariable("itemId") Long itemId,
             @RequestHeader(value = ItemController.USER_ID_HEADER) Long ownerId) {
 
         return itemService.getItemById(itemId,ownerId);
@@ -38,15 +36,15 @@ public class ItemController {
     @PatchMapping("/{itemId}")
     public ItemResponseDto updateItemById(
             @RequestBody ItemUpdateDto updateDto,
-            @PositiveOrZero @PathVariable("itemId") Long itemId,
+            @PathVariable("itemId") Long itemId,
             @RequestHeader(value = ItemController.USER_ID_HEADER) Long userId) {
         return itemService.updateItem(itemId, updateDto, userId);
     }
 
     @PostMapping
     public ResponseEntity<ItemResponseDto> createItem(
-            @PositiveOrZero @RequestHeader(value = ItemController.USER_ID_HEADER) Long ownerId,
-            @RequestBody @Valid CreateItemDto itemRequestDto) {
+            @RequestHeader(value = ItemController.USER_ID_HEADER) Long ownerId,
+            @RequestBody CreateItemDto itemRequestDto) {
 
         ItemResponseDto response = itemService.createItem(itemRequestDto, ownerId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -55,7 +53,7 @@ public class ItemController {
     @PostMapping("/{itemId}/comment")
     public ResponseEntity<CommentDto> createItemComment(
             @RequestBody CommentRequestDto request,
-            @PositiveOrZero @RequestHeader(value = ItemController.USER_ID_HEADER) Long userId,
+            @RequestHeader(value = ItemController.USER_ID_HEADER) Long userId,
             @PathVariable("itemId") Long itemId) {
 
         CommentDto response = this.itemService.createItemComment(itemId, userId, request);
@@ -66,13 +64,13 @@ public class ItemController {
     @GetMapping("/search")
     public Collection<ItemResponseDto> searchItemsByQuery(
             @RequestParam(required = false, defaultValue = "") String text,
-            @PositiveOrZero @RequestHeader(value = ItemController.USER_ID_HEADER) Long ownerId) {
+            @RequestHeader(value = ItemController.USER_ID_HEADER) Long ownerId) {
         log.info("GET /items/search?text='{}' by user {}", text, ownerId);
         return itemService.searchItems(text, ownerId);
     }
 
     @GetMapping
-    public Collection<ItemResponseDto> getUserItems(@PositiveOrZero @RequestHeader(value = "X-Sharer-User-Id", required = false) Long ownerId) {
+    public Collection<ItemResponseDto> getUserItems(@RequestHeader(value = USER_ID_HEADER, required = false) Long ownerId) {
         return itemService.getUserItems(ownerId);
     }
 }
