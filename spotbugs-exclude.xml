@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- Исключаем предупреждение EI_EXPOSE_REP2 для BaseClient -->
+    <Match>
+        <Class name="~.*\.BaseClient" />
+        <Bug code="EI_EXPOSE_REP2" />
+    </Match>
+</FindBugsFilter>
